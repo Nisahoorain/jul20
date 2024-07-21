@@ -37,6 +37,20 @@
                 </form>
                 {% endif %}
 
+                <div class="search-bar">
+                  <form class="search-form d-flex align-items-center" id="searchForm">
+                    <input type="text" name="search_query" id="searchQuery" placeholder="Search Number"
+                      title="Enter search keyword">
+                    <button type="submit" title="Search" id="searchBtn"><i class="bi bi-search"></i></button>
+                  </form>
+                </div>
+
+                <br>
+                <div id="searchResults">
+                  <!-- Results will be displayed here -->
+                </div>
+                <br>
+
                 {% if message %}
                 <div class="alert alert-info" role="alert">
                   {{ message }}
@@ -46,6 +60,9 @@
 
 
                 <div style="display: flex; justify-content: space-between;align-items: center;">
+
+                  
+
                   <h5 class="card-title">Today Number History:</h5>
                   <div>
                     <div class="filter">
@@ -270,6 +287,67 @@
         localStorage.setItem('activeTab', target);
       });
     });
+  });
+</script>
+<script>
+  document.addEventListener('DOMContentLoaded', function () {
+      const searchForm = document.getElementById('searchForm');
+      const searchQuery = document.getElementById('searchQuery');
+      const searchResults = document.getElementById('searchResults');
+
+      searchForm.addEventListener('submit', function (event) {
+          event.preventDefault(); // Prevent form submission
+          const formData = new FormData(searchForm);
+
+          fetch('/search', {
+              method: 'POST',
+              body: formData
+          })
+              .then(response => response.json())
+              .then(data => {
+                  if (data.assigned_numbers) {
+                      // Convert the assigned_at time to 12-hour format
+                      const assignedAt = new Date(data.assigned_numbers.assigned_at);
+                      const year = assignedAt.getFullYear();
+                      const month = assignedAt.getMonth() + 1; // Months are zero-based
+                      const day = assignedAt.getDate();
+                      const hours = assignedAt.getHours();
+                      const minutes = assignedAt.getMinutes();
+                      const ampm = hours >= 12 ? 'PM' : 'AM';
+                      const formattedHours = hours % 12 || 12; // Convert to 12-hour format
+                      const formattedMinutes = minutes < 10 ? '0' + minutes : minutes;
+                      const formattedTime = `${formattedHours}:${formattedMinutes} ${ampm}`;
+                      const formattedDate = `${year}-${month}-${day} ${formattedTime}`;
+
+                      // Build the HTML to display the results
+                      let html = `
+                      <h6>Assigned Number Details</h6>
+                      <ul>
+                          <li>Phone Number: ${data.assigned_numbers.phone_number}</li>
+                          <li>Details: ${data.assigned_numbers.details}</li>
+                          <li>Assigned At: ${formattedDate}</li>
+                      </ul>
+                  `;
+                      if (data.user) {
+                          html += `
+                          <h6>User Details</h6>
+                          <ul>
+                              <li>User Name: ${data.user.user}</li>
+                          </ul>
+                      `;
+                      }
+                      searchResults.innerHTML = html;
+                  } else if (data.message) {
+                      searchResults.innerHTML = `<p>${data.message}</p>`;
+                  } else {
+                      searchResults.innerHTML = `<p>No results found.</p>`;
+                  }
+              })
+              .catch(error => {
+                  console.error('Error:', error);
+                  searchResults.innerHTML = `<p>Error fetching data.</p>`;
+              });
+      });
   });
 </script>
 
