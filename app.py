@@ -737,6 +737,7 @@ def add_order():
 
     return redirect(url_for("order"))
 
+
 @app.route("/search", methods=['POST'])
 def search():
     search_query = request.form['search_query'].strip()  # Strip leading/trailing whitespaces
@@ -750,14 +751,15 @@ def search():
 
                 # Search for the phone number in assigned_numbers table
                 cursor.execute("SELECT * FROM assigned_numbers WHERE phone_number = %s", (search_query,))
-                assigned_numbers_data = cursor.fetchone()
+                assigned_numbers_data = cursor.fetchall()
 
                 if assigned_numbers_data:
-                    user_id = assigned_numbers_data['user_id']
+                    # Extract all unique user IDs
+                    user_ids = {item['user_id'] for item in assigned_numbers_data}
 
-                    # Fetch user details from users table
-                    cursor.execute("SELECT * FROM users WHERE id = %s", (user_id,))
-                    user_data = cursor.fetchone()
+                    # Fetch user details from users table for all unique user IDs
+                    cursor.execute("SELECT * FROM users WHERE id IN (%s)" % ','.join(['%s'] * len(user_ids)), tuple(user_ids))
+                    user_data = cursor.fetchall()
 
                     # Debug statements to print the fetched data
                     print(f"Assigned Numbers Data: {assigned_numbers_data}")
@@ -766,7 +768,7 @@ def search():
                     # Return JSON response
                     return jsonify({
                         'assigned_numbers': assigned_numbers_data,
-                        'user': user_data
+                        'users': user_data
                     })
                 else:
                     # No results found for the search query
@@ -782,6 +784,7 @@ def search():
     return jsonify({
         'error': 'Failed to retrieve data.'
     })
+
 
 @app.route("/order", methods=['GET', 'POST'])
 def order():
@@ -1074,5 +1077,36 @@ def delete_remaining_numbers():
 
 
 
+@app.route("/delete_two_thirds", methods=["POST"])
+def delete_two_thirds():
+    if "user_id" not in session:
+        return redirect(url_for("index"))
+
+    connection = create_connection("157.173.210.232", "billuuserphp", "BilluUserphp@3000", "billubaddshah_adminpaneldb")
+    if connection:
+        try:
+            cursor = connection.cursor()
+            # Get the total count of rows in the unique_numbers table
+            cursor.execute("SELECT COUNT(*) FROM unique_numbers")
+            total_count = cursor.fetchone()[0]
+
+            # Calculate the number of rows to delete (2/3 of the total count)
+            delete_count = (total_count * 2) // 3
+
+            # Delete 2/3 of the rows from the unique_numbers table
+            cursor.execute("DELETE FROM unique_numbers ORDER BY upload_time LIMIT %s", (delete_count,))
+            connection.commit()
+
+            return jsonify({"message": "2/3 of the numbers have been deleted successfully."}), 200
+        except Error as e:
+            connection.rollback()
+            return jsonify({"message": f"Failed to delete 2/3 of the numbers: {e}"}), 500
+        finally:
+            cursor.close()
+            connection.close()
+    else:
+        return jsonify({"message": "Failed to connect to database."}), 500
+
+
 if __name__ == "__main__":
-    app.run(debug=True)
+  app.run(host="0.0.0.0", port=5000, debug=True)
