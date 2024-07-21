@@ -292,65 +292,86 @@
   });
 </script>
 <script>
-  document.addEventListener('DOMContentLoaded', function () {
-      const searchForm = document.getElementById('searchForm');
-      const searchQuery = document.getElementById('searchQuery');
-      const searchResults = document.getElementById('searchResults');
+    document.addEventListener('DOMContentLoaded', function () {
+        const searchForm = document.getElementById('searchForm');
+        const searchQuery = document.getElementById('searchQuery');
+        const searchResults = document.getElementById('searchResults');
 
-      searchForm.addEventListener('submit', function (event) {
-          event.preventDefault(); // Prevent form submission
-          const formData = new FormData(searchForm);
+        searchForm.addEventListener('submit', function (event) {
+            event.preventDefault(); // Prevent form submission
+            const formData = new FormData(searchForm);
 
-          fetch('/search', {
-              method: 'POST',
-              body: formData
-          })
-              .then(response => response.json())
-              .then(data => {
-                  if (data.assigned_numbers) {
-                      // Convert the assigned_at time to 12-hour format
-                      const assignedAt = new Date(data.assigned_numbers.assigned_at);
-                      const year = assignedAt.getFullYear();
-                      const month = assignedAt.getMonth() + 1; // Months are zero-based
-                      const day = assignedAt.getDate();
-                      const hours = assignedAt.getHours();
-                      const minutes = assignedAt.getMinutes();
-                      const ampm = hours >= 12 ? 'PM' : 'AM';
-                      const formattedHours = hours % 12 || 12; // Convert to 12-hour format
-                      const formattedMinutes = minutes < 10 ? '0' + minutes : minutes;
-                      const formattedTime = `${formattedHours}:${formattedMinutes} ${ampm}`;
-                      const formattedDate = `${year}-${month}-${day} ${formattedTime}`;
+            fetch('/search', {
+                method: 'POST',
+                body: formData
+            })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.assigned_numbers && data.assigned_numbers.length > 0) {
+                        let html = '';
 
-                      // Build the HTML to display the results
-                      let html = `
-                      <h6>Assigned Number Details</h6>
-                      <ul>
-                          <li>Phone Number: ${data.assigned_numbers.phone_number}</li>
-                          <li>Details: ${data.assigned_numbers.details}</li>
-                          <li>Assigned At: ${formattedDate}</li>
-                      </ul>
-                  `;
-                      if (data.user) {
-                          html += `
-                          <h6>User Details</h6>
-                          <ul>
-                              <li>User Name: ${data.user.user}</li>
-                          </ul>
-                      `;
-                      }
-                      searchResults.innerHTML = html;
-                  } else if (data.message) {
-                      searchResults.innerHTML = `<p>${data.message}</p>`;
-                  } else {
-                      searchResults.innerHTML = `<p>No results found.</p>`;
-                  }
-              })
-              .catch(error => {
-                  console.error('Error:', error);
-                  searchResults.innerHTML = `<p>Error fetching data.</p>`;
-              });
-      });
-  });
+                        // Create a map to group assigned numbers by user ID
+                        const userMap = {};
+                        data.assigned_numbers.forEach(number => {
+                            if (!userMap[number.user_id]) {
+                                userMap[number.user_id] = [];
+                            }
+                            userMap[number.user_id].push(number);
+                        });
+
+                        // Reverse the order of the users array
+                        data.users.slice().reverse().forEach(user => {
+                            html += `
+                                <h6>User Details</h6>
+                                <ul>
+                                    <li>User Name: ${user.user}</li>
+                                </ul>
+                                <h6>Assigned Number Details</h6>
+                                <ul>
+                            `;
+
+                            if (userMap[user.id]) {
+                                // Reverse the order of assigned numbers for the user
+                                userMap[user.id].slice().reverse().forEach(number => {
+                                    const assignedAt = new Date(number.assigned_at);
+                                    const year = assignedAt.getFullYear();
+                                    const month = assignedAt.getMonth() + 1; // Months are zero-based
+                                    const day = assignedAt.getDate();
+                                    const hours = assignedAt.getHours();
+                                    const minutes = assignedAt.getMinutes();
+                                    const ampm = hours >= 12 ? 'PM' : 'AM';
+                                    const formattedHours = hours % 12 || 12; // Convert to 12-hour format
+                                    const formattedMinutes = minutes < 10 ? '0' + minutes : minutes;
+                                    const formattedTime = `${formattedHours}:${formattedMinutes} ${ampm}`;
+                                    const formattedDate = `${year}-${month}-${day} ${formattedTime}`;
+
+                                    html += `
+                                        <li>Phone Number: ${number.phone_number}</li>
+                                        <li>Details: ${number.details}</li>
+                                        <li>Assigned At: ${formattedDate}</li>
+                                    `;
+                                });
+                            } else {
+                                html += '<li>No assigned numbers for this user.</li>';
+                            }
+
+                            html += '</ul>';
+                        });
+
+                        searchResults.innerHTML = html;
+                    } else if (data.message) {
+                        searchResults.innerHTML = `<p>${data.message}</p>`;
+                    } else {
+                        searchResults.innerHTML = `<p>No results found.</p>`;
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    searchResults.innerHTML = `<p>Error fetching data.</p>`;
+                });
+        });
+    });
 </script>
+
 
 {% endblock %}
