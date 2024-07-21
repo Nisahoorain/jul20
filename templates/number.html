@@ -36,6 +36,7 @@
                   </div>
                 </form>
                 {% endif %}
+              {% if session["role"] == 'Admin' %}
 
                 <div class="search-bar">
                   <form class="search-form d-flex align-items-center" id="searchForm">
@@ -50,6 +51,7 @@
                   <!-- Results will be displayed here -->
                 </div>
                 <br>
+                {% endif %}
 
                 {% if message %}
                 <div class="alert alert-info" role="alert">
